@@ -60,8 +60,8 @@ def process_data(data, connection):
 
     elif dataString.startswith("party"):
         server_self = getServerByConnection(connection)
-        if server_self is not None:
-            print("instance == not working")
+        if server_self is None:
+            print("This should not happen!")
         parts = dataString.split(";")
         partyName = parts[1]
         party = getPartyByName(partyName)
@@ -82,7 +82,7 @@ def process_data(data, connection):
 
         elif com == "join":
             party.addMember(server_self.user)
-            party.broadCast(server_self.user + " joined the party!")
+            party.broadCast(server_self.user + " joined the party!", crossingOver=server_self.user)
 
             send_data("party;" + partyName + ";joinedInit;" + party.membersToString(), connection)
 
@@ -90,20 +90,28 @@ def process_data(data, connection):
             # TODO check if permission
             playerToKick = parts[3]
             server = getServerByUserName(playerToKick)
-            party.removeMember(server_self.user)
-            party.broadCast(playerToKick + " has been kicked from the party!")
+            party.removeMember(playerToKick)
+            party.broadCast(playerToKick, messageType="playerkick", crossingOver=playerToKick)
             send_data("party;" + partyName + ";kick;" + server_self.user, server.connection)
 
         elif com == "disband":
             # TODO check if permission
+            party.broadCast(server_self.user, messageType="partydisband", crossingOver=server_self.user)
             parties.remove(party)
-            party.broadCast("The party has been disbanded by " + server_self.user)
         elif com == "msg":
-            party.broadCast(server_self.user + ": " + parts[3])
-            pass
+            party.broadCast(server_self.user + ": " + parts[3], crossingOver=server_self.user)
         elif com == "leave":
-            party.removeMember(server_self.user)
-            party.broadCast(server_self.user + " left the party!") # TODO change f.e. broadcast "has been kicked" to "remove" and give the par. that he is kicked or left the partry, so the client got the code to write the message into the private chat thing and less message traffic and flexibility
+            playerToRemove = server_self.user
+            party.removeMember(playerToRemove)
+            if len(party.members) == 0:
+                parties.remove(party)
+                return
+            if party.owner == playerToRemove:
+                newOwner = party.members[0]
+                party.owner = newOwner
+                party.broadCast(newOwner, messageType="transfer")
+
+            party.broadCast(playerToRemove, messageType="playerleave", crossingOver=playerToRemove)
 
     # wenn data mit "init" beginnt, dann spieler herausfinden und connection da rein speichern
     # wenn z.b /msg parameter mitübergeben wurde servers durchlaufen und user heraussuchen

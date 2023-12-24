@@ -1,5 +1,6 @@
 import server
 
+
 class Party:
     name = "",
     owner = "",
@@ -8,7 +9,7 @@ class Party:
     def __init__(self, name, owner):
         self.name = name
         self.owner = owner
-        self.members.append(owner)
+        self.members = [owner]
 
     def addMember(self, playerName):
         self.members.append(playerName)
@@ -24,7 +25,9 @@ class Party:
 
         return string[:-1]
 
-    def broadCast(self, message):
+    def broadCast(self, message, messageType="log", crossingOver=""):
         for member in self.members:
+            if member == crossingOver:
+                continue
             connection = server.getServerByUserName(member).connection
-            server.send_data("party;" + self.name + ";log;" + message, connection)
+            server.send_data("party;" + self.name + ";" + messageType + ";" + message, connection)
