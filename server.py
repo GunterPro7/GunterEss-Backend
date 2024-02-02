@@ -1,3 +1,5 @@
+import time
+
 from Party import Party
 
 
@@ -16,6 +18,7 @@ parties = []
 
 def send_data(data, connection):
     connection.send(data.encode('utf-8'))
+    print("    <-- " + data)
 
 
 def getServerByUserName(userName):
@@ -26,6 +29,8 @@ def getServerByUserName(userName):
             return server
     return None
 
+def removeServerByConnection(connection):
+    servers.remove(getServerByConnection(connection))
 
 def getServerByConnection(connection):  # TODO check ob python == auf Instance überprüft
     global servers
@@ -67,10 +72,14 @@ def process_data(data, connection):
         party = getPartyByName(partyName)
         com = parts[2]  # com could be: "create", "join", "invite", "kick", "disband", "msg", "leave"
         if com == "create":
+            # TODO check backend side if party name already exists and send respond if could create or not
             parties.append(Party(partyName, parts[3]))
         elif com == "invite":
             # TODO check if permission
             playerToInvite = parts[3]
+            if playerToInvite in party.members:
+                send_data("party;" + partyName + ";log;This Player is already in the Party!", connection)
+                return
             server = getServerByUserName(playerToInvite)
             if server is not None:
                 send_data("party;" + partyName + ";invited;" + server_self.user, server.connection)
@@ -81,13 +90,18 @@ def process_data(data, connection):
                     connection)
 
         elif com == "join":
+            # TODO check backend side if player has been invited, if no dont let him join
+            if server_self.user in party.members:
+                return
             party.addMember(server_self.user)
-            party.broadCast(server_self.user + " joined the party!", crossingOver=server_self.user)
+            party.broadCast(server_self.user, messageType="playerjoin", crossingOver=server_self.user)
 
             send_data("party;" + partyName + ";joinedInit;" + party.membersToString(), connection)
 
         elif com == "kick":
-            # TODO check if permission
+            if server_self.user != party.owner:
+                send_data("party;" + partyName + ";log;You are not the owner of the party " + partyName + "!", connection)
+                return
             playerToKick = parts[3]
             server = getServerByUserName(playerToKick)
             party.removeMember(playerToKick)
@@ -95,7 +109,10 @@ def process_data(data, connection):
             send_data("party;" + partyName + ";kick;" + server_self.user, server.connection)
 
         elif com == "disband":
-            # TODO check if permission
+            if server_self.user != party.owner:
+                send_data("party;" + partyName + ";log;You are not the owner of the party " + partyName + "!",
+                          connection)
+                return
             party.broadCast(server_self.user, messageType="partydisband", crossingOver=server_self.user)
             parties.remove(party)
         elif com == "msg":
@@ -110,8 +127,13 @@ def process_data(data, connection):
                 newOwner = party.members[0]
                 party.owner = newOwner
                 party.broadCast(newOwner, messageType="transfer")
-
+                time.sleep(0.25)
             party.broadCast(playerToRemove, messageType="playerleave", crossingOver=playerToRemove)
-
-    # wenn data mit "init" beginnt, dann spieler herausfinden und connection da rein speichern
-    # wenn z.b /msg parameter mitübergeben wurde servers durchlaufen und user heraussuchen
+        elif com == "transfer":
+            if server_self.user != party.owner:
+                return
+            newOwner = parts[3]
+            if newOwner not in party.members:
+                send_data("party;" + partyName + ";log;" + newOwner + " is not in the party!", connection)
+            party.owner = newOwner
+            party.broadCast(newOwner, messageType="transfer")
