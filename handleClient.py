@@ -8,16 +8,26 @@ def handle_client(conn, addr):
         empfange_daten_bool_event.set()
         try:
             data = connection.recv(4096)
-        except Exception:
+        except Exception as e:
+            print("--> Verbindung zu einem Client unterbrochen, wird beendet:" + str(e))
+            server.log_to_file("--> Verbindung zu einem Client unterbrochen, wird beendet:" + str(e))
+            connection_close(connection, verbindung_abgebrochen_event)
+            return
+        if str(data[2:].decode('utf-8')) == "":
             print("--> Verbindung zu einem Client unterbrochen, wird beendet.")
+            server.log_to_file("--> Verbindung zu einem Client unterbrochen, wird beendet.")
             connection_close(connection, verbindung_abgebrochen_event)
             return
         empfange_daten_event(data, connection)
         empfange_daten_bool_event.clear()
 
     def empfange_daten_event(data, connection):
-        print("-->" + str(data))
-        server.process_data(data, connection)
+        server_ = server.getServerByConnection(connection)
+
+        if server_ is not None or str(data[2:].decode('utf-8')).startswith("init;"):
+            print(server_.user + " -->" + str(data))
+            server.log_to_file(str(data))
+            server.process_data(data, connection)
 
     def connection_close(connection, verbindung_abgebrochen_event):
         server.removeServerByConnection(connection)

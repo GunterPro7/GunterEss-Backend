@@ -29,6 +29,10 @@ def getServerByUserName(userName):
             return server
     return None
 
+def log_to_file(message, filename='log.txt'):
+    with open(filename, 'a') as file:
+        file.write(message + '\n')
+
 def removeServerByConnection(connection):
     servers.remove(getServerByConnection(connection))
 
