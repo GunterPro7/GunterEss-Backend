@@ -24,8 +24,14 @@ def handle_client(conn, addr):
     def empfange_daten_event(data, connection):
         server_ = server.getServerByConnection(connection)
 
+
+
         if server_ is not None or str(data[2:].decode('utf-8')).startswith("init;"):
-            print(server_.user + " -->" + str(data))
+            if server_ is None:
+                user = "new"
+            else:
+                user = server_.user
+            print(user + " -->" + str(data))
             server.log_to_file(str(data))
             server.process_data(data, connection)
 
